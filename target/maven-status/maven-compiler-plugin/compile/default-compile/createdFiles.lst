@@ -1,0 +1,11 @@
+ar/edu/challenge01/productapi/dto/UpdateProductRequest.class
+ar/edu/challenge01/productapi/controller/ProductController.class
+ar/edu/challenge01/productapi/ProductApiApplication.class
+ar/edu/challenge01/productapi/entity/Product.class
+ar/edu/challenge01/productapi/dto/ProductResponse.class
+ar/edu/challenge01/productapi/exception/NotFoundException.class
+ar/edu/challenge01/productapi/dto/CreateProductRequest.class
+ar/edu/challenge01/productapi/repository/ProductRepository.class
+ar/edu/challenge01/productapi/exception/GlobalExceptionHandler.class
+ar/edu/challenge01/productapi/service/ProductService.class
+ar/edu/challenge01/productapi/mapper/ProductMapper.class

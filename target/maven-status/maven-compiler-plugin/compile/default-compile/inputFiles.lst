@@ -1,0 +1,11 @@
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/ProductApiApplication.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/controller/ProductController.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/dto/CreateProductRequest.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/dto/ProductResponse.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/dto/UpdateProductRequest.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/entity/Product.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/mapper/ProductMapper.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/repository/GlobalExceptionHandler.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/repository/NotFoundException.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/repository/ProductRepository.java
+/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/main/java/ar/edu/challenge01/productapi/service/ProductService.java

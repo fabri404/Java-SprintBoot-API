@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/productdb
+    username: adriel
+    password: seguro123
+  jpa:
+    hibernate:
+      ddl-auto: validate   # en dev podés usar 'update', mejor con Flyway (paso 2)
+    open-in-view: false
+    properties:
+      hibernate.format_sql: true
+  jackson:
+    property-naming-strategy: SNAKE_CASE  # para exponer created_at
+    serialization.write-dates-as-timestamps: false
+
+server:
+  port: 8080
+
