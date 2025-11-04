@@ -3,17 +3,17 @@ spring:
     url: jdbc:postgresql://localhost:5432/productdb
     username: postgres
     password: 44578368
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: validate   # en dev podés usar 'update' si no tenés Flyway
-    open-in-view: false
+      ddl-auto: validate   # no crea ni borra tablas, solo valida
     properties:
       hibernate.format_sql: true
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-    serialization:
-      write-dates-as-timestamps: false
+      hibernate.show_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration   # carpeta de tus scripts V1__*.sql
+    # baseline-on-migrate: true        # solo si alguna vez apuntás a una DB con tablas sin historial
 
 server:
   port: 8080
-
