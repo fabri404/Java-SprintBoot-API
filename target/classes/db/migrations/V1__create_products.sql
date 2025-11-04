@@ -1,8 +1,0 @@
-CREATE TABLE products (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  price NUMERIC(15,2) NOT NULL CHECK (price >= 0),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
