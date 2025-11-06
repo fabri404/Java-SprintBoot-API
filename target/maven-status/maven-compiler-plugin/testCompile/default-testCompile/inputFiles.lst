@@ -1,1 +1,5 @@
-/home/adriel/Documentos/ADRIEL/Challenges/productapi/src/test/java/ar/edu/challenge01/product_api/ProductApiApplicationTests.java
+/home/adriel/Documentos/ADRIEL/Java-SprintBoot-API/src/test/java/ar/edu/challenge01/productapi/ProductApiApplicationTests.java
+/home/adriel/Documentos/ADRIEL/Java-SprintBoot-API/src/test/java/ar/edu/challenge01/productapi/e2e/ProductE2EIT.java
+/home/adriel/Documentos/ADRIEL/Java-SprintBoot-API/src/test/java/ar/edu/challenge01/productapi/service/ProductServiceTest.java
+/home/adriel/Documentos/ADRIEL/Java-SprintBoot-API/src/test/java/ar/edu/challenge01/productapi/web/ProductControllerTest.java
+/home/adriel/Documentos/ADRIEL/Java-SprintBoot-API/src/test/java/ar/edu/challenge01/productapi/web/ProductValidationTest.java

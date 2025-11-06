@@ -1,0 +1,59 @@
+package ar.edu.challenge01.productapi.web;
+
+import ar.edu.challenge01.productapi.entity.Product;
+import ar.edu.challenge01.productapi.repository.ProductRepository;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.util.List;
+
+@RestController
+@RequestMapping("/products")
+public class ProductController {
+
+  private final ProductRepository repo;
+  public ProductController(ProductRepository repo) { this.repo = repo; }
+
+  @GetMapping
+  public List<Product> list() {
+    return repo.findAll();
+  }
+
+  @GetMapping("/{id}")
+  public ResponseEntity<Product> get(@PathVariable Long id) {
+    return repo.findById(id)
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.notFound().build());
+  }
+
+  @PostMapping
+  public ResponseEntity<Product> create(@Valid @RequestBody Product body) {
+    var saved = repo.save(body);
+    return ResponseEntity
+        .created(URI.create("/products/" + saved.getId()))
+        .body(saved);
+  }
+
+  @PutMapping("/{id}")
+  public ResponseEntity<Product> update(@PathVariable Long id, @Valid @RequestBody Product body) {
+    return repo.findById(id)
+        .map(db -> {
+          db.setName(body.getName());
+          db.setDescription(body.getDescription());
+          db.setPrice(body.getPrice());
+          var updated = repo.save(db);
+          return ResponseEntity.ok(updated);
+        })
+        .orElseGet(() -> ResponseEntity.notFound().build());
+  }
+
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> delete(@PathVariable Long id) {
+    if (!repo.existsById(id)) return ResponseEntity.notFound().build();
+    repo.deleteById(id);
+    return ResponseEntity.noContent().build();
+  }
+}
+
