@@ -1,1 +1,5 @@
 ar/edu/challenge01/productapi/ProductApiApplicationTests.class
+ar/edu/challenge01/productapi/service/ProductServiceTest.class
+ar/edu/challenge01/productapi/web/ProductControllerTest.class
+ar/edu/challenge01/productapi/web/ProductValidationTest.class
+ar/edu/challenge01/productapi/e2e/ProductE2EIT.class

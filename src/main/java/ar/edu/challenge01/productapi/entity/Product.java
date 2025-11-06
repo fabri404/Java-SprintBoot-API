@@ -1,36 +1,34 @@
 package ar.edu.challenge01.productapi.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-@Entity
-@Table(name = "products") // mapea a la tabla products
+@Entity @Table(name = "products")
 public class Product {
-
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @NotBlank @Size(max = 255)
   @Column(nullable = false)
   private String name;
 
+  @NotBlank
   @Column(nullable = false)
   private String description;
 
+  @Positive
   @Column(nullable = false, precision = 15, scale = 2)
   private BigDecimal price;
 
-  // Importante: coincide con la columna created_at en la BD
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
   @PrePersist
-  void prePersist() {
-    if (createdAt == null) {
-      createdAt = Instant.now();
-    }
-  }
+  void prePersist(){ if (createdAt == null) createdAt = Instant.now(); }
 
   // Getters/Setters
   public Long getId() { return id; }

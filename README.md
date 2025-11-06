@@ -731,3 +731,61 @@ com.example.productapi
 - `service/ProductService.java`: `create, findAll(Pageable), findById, update, delete` con manejo de `NotFoundException`/`ConflictException`.
 - `exception/GlobalExceptionHandler.java`: `@ControllerAdvice` que unifica respuestas de error.
 
+## 16. Testing
+
+Este proyecto incorpora una batería de pruebas orientada a verificar **contrato de API**, **reglas de validación** y **comportamiento end-to-end**. A continuación se describe **qué se testea, cómo y por qué es importante**, junto con comandos y rutas de archivos para integrarlo a tu documentación.
+
+## 16.1 Tipos de tests incluidos
+
+### 1. Tests de Controller (slice web)
+
+- **Anotaciones clave:** `@WebMvcTest(ProductController.class)`, `MockMvc`
+    - **Qué validan:**
+        - Mapeos HTTP y rutas: `GET /products`, `GET /products/{id}`, `POST`, `PUT`, `DELETE`.
+        - **Códigos de estado** esperados (200/201/204/404/400).
+        - **Estructura del JSON** de respuesta (campos presentes).
+    - **Por qué importa:** detecta errores de contrato de API (paths, status, serialización) **sin** depender de la base de datos → **rápidos y precisos**.
+    
+    **Archivo de referencia:**
+    
+    `src/test/java/ar/edu/challenge01/productapi/web/ProductControllerTest.java`
+    
+    ---
+    
+    ### 2. Tests de Validación (Bean Validation)
+    
+    - **Anotaciones clave:** `@WebMvcTest`, `@Valid` en el `@RequestBody`, `ApiExceptionHandler`
+    - **Qué validan:**
+        - Que payloads inválidos (por ejemplo, `name` vacío o `price` nulo) disparen **400 Bad Request**.
+        - Que el **cuerpo de error** siga un formato consistente (clave `error`, `message`, `details` con campos y mensajes).
+    - **Por qué importa:** evita que **datos inválidos** entren a la capa de persistencia y estandariza la UX de la API ante errores.
+    
+    **Archivo de referencia:**
+    
+    `src/test/java/ar/edu/challenge01/productapi/web/ProductValidationTest.java`
+    
+    > Nota: El handler devuelve error: "Bad Request" (reason phrase estándar). Los tests ya contemplan ese valor para no generar falsos negativos.
+    > 
+    
+    ---
+    
+    ### 3. Tests de Integración (end-to-end) – *opcional/si se activan*
+    
+    - **Anotaciones clave:** `@SpringBootTest`, `MockMvc` (o `TestRestTemplate`)
+    - **Qué validan:**
+        - Flujo **real** CRUD: crear → leer → actualizar → borrar **atravesando todas las capas** (web → JPA → DB → Flyway).
+        - Alineación entre **entidades JPA** y **migraciones** (columnas, tipos, constraints).
+    - **Por qué importa:** da **confianza de extremo a extremo**; si pasa aquí, es altamente probable que funcione igual en producción.
+    
+    **Archivo de referencia (si se incluye):**
+    
+    `src/test/java/ar/edu/challenge01/productapi/web/ProductE2ETest.java`
+    
+
+| Tipo | Criterio | Ejemplo de aserción |
+| --- | --- | --- |
+| Controller (Web) | La ruta responde con **status** correcto | `andExpect(status().isOk())`, `isCreated()`, `isNoContent()`, `isNotFound()`, `isBadRequest()` |
+| Controller (Web) | JSON con **campos esperados** | `jsonPath("$.id").exists()`, `jsonPath("$.name").value("Teclado")` |
+| Validación | **400** cuando el payload viola `@Valid` | `andExpect(status().isBadRequest())` |
+| Validación | **Formato de error** consistente | `jsonPath("$.error").value("Bad Request")` y `jsonPath("$.details.name").exists()` |
+| Integración | CRUD completo **end-to-end** | POST→GET→PUT→DELETE con verificación de side-effects en DB |
