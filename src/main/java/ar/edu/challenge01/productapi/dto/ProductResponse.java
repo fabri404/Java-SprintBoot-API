@@ -8,6 +8,7 @@ public record ProductResponse(
         String name,
         String description,
         BigDecimal price,
-        Instant createdAt
+        Instant createdAt,
+        Instant updatedAt
 ) {}
 

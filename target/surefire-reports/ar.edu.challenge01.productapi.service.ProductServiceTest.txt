@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: ar.edu.challenge01.productapi.service.ProductServiceTest
 -------------------------------------------------------------------------------
-Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.249 s -- in ar.edu.challenge01.productapi.service.ProductServiceTest
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.716 s -- in ar.edu.challenge01.productapi.service.ProductServiceTest

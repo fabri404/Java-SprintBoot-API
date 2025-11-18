@@ -1,14 +1,16 @@
 package ar.edu.challenge01.productapi.mapper;
 
-import ar.edu.challenge01.productapi.dto.ProductRequest;
+import ar.edu.challenge01.productapi.dto.CreateProductRequest;
+import ar.edu.challenge01.productapi.dto.UpdateProductRequest;
 import ar.edu.challenge01.productapi.dto.ProductResponse;
 import ar.edu.challenge01.productapi.entity.Product;
 
 public final class ProductMapper {
 
-    private ProductMapper() {}
+    private ProductMapper() {
+    }
 
-    public static Product toEntity(ProductRequest req) {
+    public static Product toEntity(CreateProductRequest req) {
         Product p = new Product();
         p.setName(req.name());
         p.setDescription(req.description());
@@ -16,7 +18,7 @@ public final class ProductMapper {
         return p;
     }
 
-    public static void updateEntity(Product p, ProductRequest req) {
+    public static void updateEntity(Product p, UpdateProductRequest req) {
         p.setName(req.name());
         p.setDescription(req.description());
         p.setPrice(req.price());
@@ -27,8 +29,9 @@ public final class ProductMapper {
                 p.getId(),
                 p.getName(),
                 p.getDescription(),
-                p.getPrice(),
-                p.getCreatedAt()
+                p.getPrice(),     
+                p.getCreatedAt(),
+                p.getUpdatedAt()
         );
     }
 }
