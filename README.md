@@ -2,256 +2,210 @@
 
 **Tecnologías**: Java 17 · Spring Boot 3 · Spring Web · Spring Data JPA · Bean Validation · PostgreSQL · Flyway · Maven Wrapper
 
-> Objetivo: exponer una API REST para la gestión de productos con CRUD completo, validaciones, paginación opcional, migraciones de esquema y manejo de errores uniforme. Esta guía permite reproducir el entorno y ejecutar la aplicación de punta a punta.
-> 
+> API RESTful para la gestión de productos (CRUD completo) con persistencia en PostgreSQL, migraciones Flyway, validaciones y manejo uniforme de errores.
 
 ---
 
-## 0. Inicio rápido — paso a paso (de 0 a API funcionando)
+## 0. Inicio rápido — de 0 a API funcionando
 
 1. **Clonar el repositorio**
 
 ```bash
 git clone <URL_DEL_REPO>
 cd <carpeta_del_repo>
-
 ```
 
-1. **Instalar dependencias del sistema** (si no las tienes)
-- Java: `sudo apt install -y openjdk-17-jdk && java -version`
-- PostgreSQL: `sudo apt install -y postgresql postgresql-contrib && psql --version`
-- (Opcional) HTTPie y jq: `sudo apt install -y httpie jq`
-1. **Crear base de datos y usuario** (ajusta credenciales propias)
+2. **Configurar base de datos PostgreSQL**
 
-```bash
-sudo -u postgres psql -c "CREATE USER YOUR_DB_USER WITH PASSWORD 'YOUR_DB_PASSWORD';"
-sudo -u postgres psql -c "CREATE DATABASE productdb OWNER YOUR_DB_USER;"
+Crea la base de datos y el usuario (puede ser `postgres` u otro usuario propio):
 
+```sql
+CREATE DATABASE productdb OWNER postgres;
 ```
 
-1. **Exportar variables de entorno** (recomendado)
+3. **Configurar credenciales (variables de entorno o application.yml)**
+
+Ejemplo con variables de entorno:
 
 ```bash
 export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/productdb
-export SPRING_DATASOURCE_USERNAME=YOUR_DB_USER
-export SPRING_DATASOURCE_PASSWORD=YOUR_DB_PASSWORD
+export SPRING_DATASOURCE_USERNAME=postgres
+export SPRING_DATASOURCE_PASSWORD=TU_PASSWORD
 export SERVER_PORT=8080
-
 ```
 
-1. **Compilar y verificar**
+4. **Construir y ejecutar la aplicación**
 
 ```bash
-./mvnw -U clean package
-
-```
-
-> El Maven Wrapper (./mvnw) baja las dependencias a ~/.m2/repository y usa la versión de Maven declarada en el wrapper para garantizar reproducibilidad.
-> 
-1. **Aplicar migraciones y arrancar**
-
-```bash
+./mvnw clean package
 ./mvnw spring-boot:run
 # o bien
 java -jar target/product-api-0.0.1-SNAPSHOT.jar
-
 ```
 
-La app queda en `http://localhost:${SERVER_PORT:-8080}` y expone `/products`.
+La API quedará disponible en:
 
-1. **Probar la API**
-
-```bash
-http POST :8080/products name='Mate' description='Acero' price:=21999.00
-http :8080/products
-
+```text
+http://localhost:8080
 ```
 
-> Si algo falla, revisa la sección 11. Solución de problemas.
-> 
+Endpoints principales:
 
----
-
-## 1. Introducción conceptual
-
-### 1.1 ¿Qué es una API?
-
-Una **API** (Application Programming Interface) es una interfaz de comunicación entre programas. En la web suele ser una **API HTTP**: el cliente envía una petición a una **URL** y recibe una **respuesta** (usualmente **JSON**), siguiendo un contrato definido.
-
-### 1.2 ¿Qué es una API RESTful?
-
-**REST** es un estilo de arquitectura para diseñar APIs que:
-
-- Modela el dominio como **recursos** (p. ej., `products`).
-- Usa **URLs** para identificar recursos y **métodos HTTP** para operar.
-- Es **stateless**: cada petición es autosuficiente.
-- Emplea **códigos HTTP** coherentes y formatos estándar como **JSON**.
-
-Recursos y endpoints solicitados (CRUD):
-
-- `POST /products`
 - `GET /products`
 - `GET /products/{id}`
+- `POST /products`
 - `PUT /products/{id}`
 - `DELETE /products/{id}`
 
-### 1.3 Recursos, endpoints y representación
+---
 
-- **Recurso**: entidad del negocio (Producto).
-- **Endpoint**: **método + ruta** (ej.: `GET /products/{id}`).
-- **Representación**: JSON enviado/recibido (contrato).
+## 1. API — Endpoints principales y ejemplos rápidos (curl)
 
-Ejemplo de **Product**:
+En todos los ejemplos se asume que la API corre en `http://localhost:8080`.  
+Cada comando `curl` es independiente (no se usan variables tipo `BASE_URL`).
+
+### 1.1 Crear producto — `POST /products`
+
+```bash
+curl -i -X POST http://localhost:8080/products   -H "Content-Type: application/json"   -d '{"name":"Mate","description":"Acero inoxidable","price":190.43}'
+```
+
+Respuesta esperada (201 Created):
 
 ```json
 {
   "id": 1,
-  "name": "Cafetera",
-  "description": "Express 20 bares",
-  "price": 129999.99,
-  "created_at": "2025-10-31T20:00:00Z"
+  "name": "Mate",
+  "description": "Acero inoxidable",
+  "price": 190.43,
+  "createdAt": "2025-11-18T18:30:00Z",
+  "updatedAt": "2025-11-18T18:30:00Z"
 }
-
 ```
 
-### 1.4 Métodos HTTP
+### 1.2 Listar productos — `GET /products`
 
-- **GET**: lectura (seguro e idempotente).
-- **POST**: creación (no idempotente).
-- **PUT**: sustitución/actualización **total** (idempotente).
-- **DELETE**: eliminación (idempotente semántico).
+```bash
+curl -i http://localhost:8080/products
+```
 
-### 1.5 Códigos de estado HTTP
+- Devuelve una lista de productos (`List<ProductResponse>`).
+- Por defecto se ordenan **cronológicamente**, del más nuevo al más viejo (`createdAt` descendente).
 
-- **200 OK**: lectura/actualización exitosa (GET/PUT).
-- **201 Created**: creación exitosa (POST) + header `Location`.
-- **204 No Content**: borrado exitoso (DELETE) o actualización sin cuerpo.
-- **400 Bad Request**: JSON inválido/validaciones fallidas.
-- **404 Not Found**: `id` inexistente.
-- **409 Conflict** *(opcional)*: conflicto de negocio (duplicados, etc.).
-- **422 Unprocessable Entity** *(opcional)*: semántica inválida.
-- **500 Internal Server Error**: error no controlado.
+### 1.3 Obtener producto por id — `GET /products/{id}`
 
-### 1.6 JSON, serialización y contrato
+```bash
+curl -i http://localhost:8080/products/1
+```
 
-- **JSON** es el formato de intercambio (obligatorio).
-- Spring usa **Jackson** para convertir objetos Java ⇄ JSON (**serialización**).
-- La forma del JSON es el **API contract**; debe documentarse y mantenerse estable.
+- Si existe: `200 OK` con el producto.
+- Si no existe: `404 Not Found` con un cuerpo JSON de error, por ejemplo:
 
-### 1.7 Arquitectura lógica en Spring Boot
+```json
+{
+  "error": "PRODUCT_NOT_FOUND",
+  "message": "Product with id 999 not found",
+  "status": 404,
+  "path": "/products/999",
+  "timestamp": "2025-11-18T18:35:00Z"
+}
+```
 
-- **Controller**: maneja HTTP (rutas, status codes, DTOs).
-- **Service**: reglas y validaciones de negocio.
-- **Repository**: acceso a datos (JPA/JDBC).
-- **Entity / DTO**: modelo de persistencia vs. modelo expuesto por la API.
+### 1.4 Actualizar producto — `PUT /products/{id}`
 
-### 1.8 Persistencia
+```bash
+curl -i -X PUT http://localhost:8080/products/1   -H "Content-Type: application/json"   -d '{"name":"Mate XL","description":"Acero doble pared","price":219.99}'
+```
 
-El proyecto utiliza **PostgreSQL** con **Spring Data JPA**. Alternativamente podría usarse JDBC puro, pero JPA acelera el CRUD.
+- Si el producto existe: `200 OK` (o `204 No Content`, según implementación) con el producto actualizado.
+- El campo `updatedAt` se actualiza a la fecha/hora de la última modificación.
+- `createdAt` se mantiene sin cambios.
 
-### 1.9 Migraciones (Flyway)
+### 1.5 Eliminar producto — `DELETE /products/{id}`
 
-Las migraciones versionadas (`db/migration/V1__...sql`, `V2__...sql`, ...) permiten **recrear** la base de forma determinista en cualquier entorno. Se aplican automáticamente al iniciar la app.
+```bash
+curl -i -X DELETE http://localhost:8080/products/1
+```
 
-### 1.10 Validación de datos
-
-Se aplican anotaciones de Bean Validation: `@NotBlank`, `@PositiveOrZero`, etc. Los errores se devuelven como `400 Bad Request` con cuerpo JSON consistente.
-
-### 1.11 Paginación/ordenamiento
-
-`GET /products?page=0&size=10&sort=createdAt,desc` — se soporta `Pageable` de Spring (opcional, recomendado).
-
-### 1.12 Manejo uniforme de errores
-
-`@ControllerAdvice` traduce excepciones a respuestas JSON con campos: `timestamp`, `status`, `error`, `message`, `path`.
+- Si existe y se elimina correctamente: `204 No Content`.
+- Si no existe: `404 Not Found` con JSON de error.
 
 ---
 
-## 2. Requisitos del sistema
+## 2. Modelo de datos y contrato JSON
 
-### 2.1 Sistema operativo
+### 2.1 Entidad de dominio `Product`
 
-- Linux (Ubuntu/Zorin), macOS o Windows 10/11.
+A nivel de negocio, un producto tiene:
 
-### 2.2 Software necesario
+- `id`: identificador numérico autogenerado.
+- `name`: nombre del producto.
+- `description`: descripción del producto.
+- `price`: precio con **2 decimales** (NUMERIC(15,2)).
+- `createdAt`: fecha/hora de creación.
+- `updatedAt`: fecha/hora de última actualización.
 
-- **JDK 17** (OpenJDK recomendado)
-- **Maven Wrapper** (incluido en el repo: `./mvnw`)
-- **PostgreSQL 14+** (recomendado 15/16/18)
-- **psql** (cliente de línea de comandos de PostgreSQL)
-- Herramientas opcionales:
-    - **HTTPie** o **curl** (pruebas manuales de la API)
-    - **jq** (formateo de JSON en CLI)
-    - **Docker / Docker Compose** (alternativa para DB)
-    - **DBeaver** o **pgAdmin** (cliente gráfico SQL)
+### 2.2 DTO de entrada — `CreateProductRequest` / `UpdateProductRequest`
+
+Ejemplo de JSON válido para crear/actualizar:
+
+```json
+{
+  "name": "Cafetera Express",
+  "description": "Cafetera de 20 bares",
+  "price": 129999.99
+}
+```
+
+Reglas clave:
+
+- `name`
+  - Obligatorio, no vacío.
+  - Longitud mínima 3 caracteres.
+  - Debe contener al menos **una letra** (no puede ser solo números).
+- `description`
+  - Obligatoria, no vacía.
+  - Longitud mínima 3 caracteres.
+  - Debe contener al menos **una letra**.
+- `price`
+  - Obligatorio.
+  - Mayor o igual que 0.
+  - Máximo 2 decimales.
+  - Se fuerza internamente a escala 2 con redondeo HALF_UP, por lo que
+    valores como `190.43097853056348075` se guardan y devuelven como `190.43`.
+
+### 2.3 DTO de salida — `ProductResponse`
+
+El contrato de salida incluye:
+
+```json
+{
+  "id": 1,
+  "name": "Cafetera Express",
+  "description": "Cafetera de 20 bares",
+  "price": 129999.99,
+  "createdAt": "2025-11-18T18:30:00Z",
+  "updatedAt": "2025-11-18T18:45:12Z"
+}
+```
 
 ---
 
-## 3. Instalación (paso a paso)
+## 3. Requisitos del sistema
 
-### 3.1 Instalar Java 17 (Ubuntu/Zorin)
-
-```bash
-sudo apt update
-sudo apt install -y openjdk-17-jdk
-java -version
-
-```
-
-### 3.2 Instalar PostgreSQL (Ubuntu/Zorin)
-
-```bash
-sudo apt install -y postgresql postgresql-contrib
-sudo systemctl enable --now postgresql
-psql --version
-
-```
-
-### 3.3 Crear base de datos y usuario
-
-> Reemplaza YOUR_DB_USER / YOUR_DB_PASSWORD por credenciales propias (no uses DNI ni datos sensibles).
-> 
-
-```bash
-sudo -u postgres psql -c "CREATE USER YOUR_DB_USER WITH PASSWORD 'YOUR_DB_PASSWORD';"
-sudo -u postgres psql -c "CREATE DATABASE productdb OWNER YOUR_DB_USER;"
-
-```
-
-### 3.4 Variables de entorno (recomendado)
-
-```bash
-export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/productdb
-export SPRING_DATASOURCE_USERNAME=YOUR_DB_USER
-export SPRING_DATASOURCE_PASSWORD=YOUR_DB_PASSWORD
-export SERVER_PORT=8080
-
-```
-
-### 3.5 Clonado y build
-
-```bash
-# dentro del directorio del proyecto
-./mvnw -U clean package
-
-```
-
-### 3.6 Arranque de la aplicación
-
-```bash
-./mvnw spring-boot:run
-# o
-java -jar target/product-api-0.0.1-SNAPSHOT.jar
-
-```
-
-La API queda disponible en `http://localhost:${SERVER_PORT:-8080}`.
+- **Sistema operativo**: Linux, macOS o Windows.
+- **Java**: JDK 17 (OpenJDK recomendado).
+- **Base de datos**: PostgreSQL 14+.
+- **Herramientas recomendadas**:
+  - DBeaver / pgAdmin (cliente gráfico).
+  - curl o HTTPie para pruebas manuales.
+  - Docker (opcional) si se desea levantar PostgreSQL en contenedor.
 
 ---
 
-## 4. Configuración de la aplicación
+## 4. Configuración de la aplicación (Spring Boot)
 
-Archivo `src/main/resources/application.yml` (perfil por defecto **dev**):
+Archivo principal: `src/main/resources/application.yml`:
 
 ```yaml
 spring:
@@ -266,19 +220,20 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
 server:
   port: ${SERVER_PORT:8080}
-
 ```
 
-> Perfiles: puedes definir application-dev.yml y application-prod.yml y activar con --spring.profiles.active=dev.
-> 
+Se recomienda configurar las credenciales mediante variables de entorno en lugar de hardcodearlas.
 
 ---
 
-## 5. Esquema de base y migraciones (Flyway)
+## 5. Esquema de base de datos y migraciones (Flyway)
 
-### 5.1 Migración inicial `V1__create_products.sql`
+### 5.1 Migración inicial
+
+Ejemplo de `V1__create_products.sql`:
 
 ```sql
 CREATE TABLE IF NOT EXISTS products (
@@ -286,506 +241,179 @@ CREATE TABLE IF NOT EXISTS products (
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   price NUMERIC(15,2) NOT NULL CHECK (price >= 0),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
 ```
 
-> Al iniciar la app, Flyway validará/aplicará las migraciones en orden.
-> 
+- El tipo `NUMERIC(15,2)` limita el precio a 2 decimales.
+- `created_at` y `updated_at` mantienen el tracking temporal.
+- Cualquier valor de `price` fuera de rango dispara un error coherente con las validaciones del modelo.
 
-### 5.2 Comandos útiles (psql)
+### 5.2 Verificación rápida en PostgreSQL
 
 ```bash
-# probar conexión
-PGPASSWORD=$SPRING_DATASOURCE_PASSWORD psql -h localhost -p 5432 -U $SPRING_DATASOURCE_USERNAME -d productdb -c "SELECT now();"
-
-# describir tabla
-PGPASSWORD=$SPRING_DATASOURCE_PASSWORD psql -h localhost -U $SPRING_DATASOURCE_USERNAME -d productdb -c "\\d+ public.products"
-
-# ver datos
-PGPASSWORD=$SPRING_DATASOURCE_PASSWORD psql -h localhost -U $SPRING_DATASOURCE_USERNAME -d productdb -c "SELECT * FROM products ORDER BY id DESC LIMIT 10;"
-
-# historial de Flyway
-PGPASSWORD=$SPRING_DATASOURCE_PASSWORD psql -h localhost -U $SPRING_DATASOURCE_USERNAME -d productdb -c "SELECT installed_rank, version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
-
+psql -h localhost -U postgres -d productdb -c "\d+ products"
+psql -h localhost -U postgres -d productdb -c "SELECT * FROM products ORDER BY created_at DESC LIMIT 5;"
 ```
 
 ---
 
-## 6. Endpoints y ejemplos
+## 6. Endpoints — detalle y ejemplos (curl)
 
-### 6.1 Rutas
-
-- `POST /products`
-- `GET /products`
-- `GET /products/{id}`
-- `PUT /products/{id}`
-- `DELETE /products/{id}`
-
-### 6.2 Ejemplos con **curl**
+### 6.1 POST /products — Crear producto
 
 ```bash
-# Base (ajustar si usas prefijo /api/v1)
-export BASE="http://localhost:8080"
-
-# Crear
-curl -i -X POST "$BASE/products" -H 'Content-Type: application/json' \
-  -d '{"name":"Mate","description":"Acero","price":21999.00}'
-
-# Listar
-curl -s "$BASE/products" | jq .
-
-# Ver uno
-curl -s "$BASE/products/1" | jq .
-
-# Actualizar total
-curl -i -X PUT "$BASE/products/1" -H 'Content-Type: application/json' \
-  -d '{"name":"Mate XL","description":"Doble pared","price":25999.00}'
-
-# Borrar
-curl -i -X DELETE "$BASE/products/1"
-
+curl -i -X POST http://localhost:8080/products   -H "Content-Type: application/json"   -d '{"name":"Mouse","description":"Inalámbrico","price":999.90}'
 ```
 
-### 6.3 Ejemplos con **HTTPie**
+Errores posibles:
+
+- `400 Bad Request` con detalles si:
+  - Falta algún campo obligatorio.
+  - `name` o `description` no cumplen con las reglas (solo números, muy corto, etc.).
+  - `price` tiene más de 2 decimales o no es numérico.
+
+### 6.2 GET /products — Listar productos
 
 ```bash
-http POST $BASE/products name='Mouse' description='Inalámbrico' price:=999.90
-http $BASE/products
-http $BASE/products/1
-http PUT $BASE/products/1 name='Mouse Pro' description='BT 5.0' price:=1299.00
-http DELETE $BASE/products/1
-
+curl -s http://localhost:8080/products | jq .
 ```
 
-### 6.4 Paginación (opcional)
+- Devuelve lista ordenada por `createdAt` descendente.
+- Si se implementa paginación con `Pageable`, se exponen campos como `content`, `totalElements`, `totalPages`, etc.
 
+Ejemplo con parámetros de paginación:
+
+```bash
+curl -s "http://localhost:8080/products?page=0&size=5" | jq .
 ```
-GET /products?page=0&size=10&sort=createdAt,desc
 
+### 6.3 GET /products/{id} — Detalle
+
+```bash
+curl -i http://localhost:8080/products/10
 ```
 
-Respuesta típica `Page<>`: `content`, `totalElements`, `totalPages`, `number`, etc.
+- `200 OK` si existe.
+- `404 Not Found` con body JSON si no existe.
+
+### 6.4 PUT /products/{id} — Actualizar producto
+
+```bash
+curl -i -X PUT http://localhost:8080/products/10   -H "Content-Type: application/json"   -d '{"name":"Mouse Pro","description":"Bluetooth 5.0","price":1299.00}'
+```
+
+- `200 OK` con el producto actualizado.
+- `404 Not Found` si el id no existe.
+- `400 Bad Request` si la validación falla.
+
+### 6.5 DELETE /products/{id} — Eliminar producto
+
+```bash
+curl -i -X DELETE http://localhost:8080/products/10
+```
+
+- `204 No Content` si se elimina correctamente.
+- `404 Not Found` si el id no existe.
 
 ---
 
 ## 7. Validación y manejo de errores
 
-### 7.1 Validaciones
+La API utiliza **Bean Validation** (`jakarta.validation`) en los DTOs de entrada y un `@ControllerAdvice` para transformar las excepciones en respuestas JSON consistentes.
 
-En DTO/Entity:
-
-```java
-@NotBlank private String name;
-@NotBlank private String description;
-@PositiveOrZero private BigDecimal price;
-
-```
-
-### 7.2 Respuesta de error unificada
-
-Ejemplo de cuerpo de error:
+Ejemplo de error de validación:
 
 ```json
 {
-  "timestamp":"2025-10-31T23:00:00Z",
-  "status":404,
-  "error":"Not Found",
-  "message":"Product 999 not found",
-  "path":"/products/999"
+  "error": "VALIDATION_ERROR",
+  "status": 400,
+  "message": "Invalid request body",
+  "path": "/products",
+  "timestamp": "2025-11-18T18:40:00Z",
+  "details": [
+    {
+      "field": "name",
+      "message": "name must contain at least one letter"
+    },
+    {
+      "field": "price",
+      "message": "price must have up to 2 decimals"
+    }
+  ]
 }
-
 ```
 
-### 7.3 Plantilla de `@ControllerAdvice`
+Ejemplo de error de recurso no encontrado:
 
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-  @ExceptionHandler(MethodArgumentNotValidException.class)
-  @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public Map<String, Object> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
-    var errors = ex.getBindingResult().getFieldErrors().stream()
-        .collect(Collectors.toMap(FieldError::getField, DefaultMessageSourceResolvable::getDefaultMessage, (a,b)->a));
-    return Map.of(
-      "timestamp", Instant.now().toString(),
-      "status", 400,
-      "error", "Bad Request",
-      "message", errors,
-      "path", req.getRequestURI()
-    );
-  }
-
-  @ExceptionHandler(NotFoundException.class)
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  public Map<String, Object> handleNotFound(NotFoundException ex, HttpServletRequest req) {
-    return Map.of(
-      "timestamp", Instant.now().toString(),
-      "status", 404,
-      "error", "Not Found",
-      "message", ex.getMessage(),
-      "path", req.getRequestURI()
-    );
-  }
-
-  @ExceptionHandler(ConflictException.class)
-  @ResponseStatus(HttpStatus.CONFLICT)
-  public Map<String, Object> handleConflict(ConflictException ex, HttpServletRequest req) {
-    return Map.of(
-      "timestamp", Instant.now().toString(),
-      "status", 409,
-      "error", "Conflict",
-      "message", ex.getMessage(),
-      "path", req.getRequestURI()
-    );
-  }
+```json
+{
+  "error": "PRODUCT_NOT_FOUND",
+  "status": 404,
+  "message": "Product with id 123 not found",
+  "path": "/products/123",
+  "timestamp": "2025-11-18T18:42:00Z"
 }
+```
 
+Este diseño evita mensajes genéricos tipo “malformación” y ayuda a que quien use la API entienda exactamente qué debe corregir.
+
+---
+
+## 8. Razones técnicas: SQL vs NoSQL y elección de PostgreSQL
+
+- El dominio es relacional y sencillo (lista de productos), por lo que SQL encaja bien.
+- PostgreSQL:
+  - Es open source, robusto y estándar en entornos productivos.
+  - Soporta tipos numéricos exactos (`NUMERIC`) para precios.
+  - Se integra muy bien con Spring Data JPA.
+
+Para este tipo de API CRUD simple, una base NoSQL sería una sobreingeniería innecesaria.
+
+---
+
+## 9. Estructura de paquetes (sugerida)
+
+```text
+ar.edu.challenge01.productapi
+├── ProductApiApplication.java
+├── entity
+│   └── Product.java
+├── dto
+│   ├── CreateProductRequest.java
+│   ├── UpdateProductRequest.java
+│   └── ProductResponse.java
+├── repository
+│   └── ProductRepository.java
+├── mapper
+│   └── ProductMapper.java
+├── web
+│   └── ProductController.java
+└── exception
+    ├── ResourceNotFoundException.java
+    └── GlobalExceptionHandler.java   // @ControllerAdvice
 ```
 
 ---
 
-## 8. Pruebas automatizadas
+## 10. Estructura del proyecto
 
-### 8.1 Unit tests
-
-- Prueban la lógica de **Service** con dependencias mockeadas.
-- Herramientas: JUnit 5, Mockito.
-
-### 8.2 Web layer tests
-
-- `@WebMvcTest(ProductController.class)` + `MockMvc` para verificar status y contrato JSON.
-
-### 8.3 Integration tests
-
-- `@SpringBootTest` con Testcontainers (PostgreSQL) para pruebas end-to-end.
+- `src/main/java`: código fuente de la aplicación.
+- `src/main/resources`:
+  - `application.yml`: configuración de Spring.
+  - `db/migration`: scripts Flyway.
+- `src/test/java`: pruebas unitarias e integración.
+- `pom.xml`: dependencias, plugins y configuración de build.
 
 ---
 
-## 9. Docker (opcional)
-
-`docker-compose.yml` mínimo para PostgreSQL:
-
-```yaml
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: productdb
-      POSTGRES_USER: YOUR_DB_USER
-      POSTGRES_PASSWORD: YOUR_DB_PASSWORD
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-volumes:
-  pgdata:
-
-```
-
-> Con la DB en marcha, ejecuta la app con tus variables SPRING_DATASOURCE_* apuntando a localhost:5432.
-> 
-
----
-
-## 10. Operación y catálogo de comandos
-
-### 10.1 Build/Run
-
-```yaml
-iniciar_con_mvnw:
-  cmd: "./mvnw spring-boot:run"
-  desc: "Ejecuta la app con el Maven Wrapper del proyecto."
-iniciar_con_mvn:
-  cmd: "mvn spring-boot:run"
-  desc: "Ejecuta la app usando Maven instalado en el sistema."
-compilar_sin_tests:
-  cmd: "./mvnw -DskipTests clean package"
-  desc: "Compila y empaqueta el JAR omitiendo tests."
-compilar_con_tests:
-  cmd: "./mvnw clean package"
-  desc: "Compila, corre tests y empaqueta el JAR."
-ejecutar_jar:
-  cmd: "java -jar target/product-api-0.0.1-SNAPSHOT.jar"
-  desc: "Corre el JAR ya construido."
-forzar_update_dependencias:
-  cmd: "./mvnw -U clean package"
-  desc: "Fuerza actualización de metadatos/SNAPSHOTs al compilar."
-
-```
-
-### 10.2 Variables útiles
-
-```yaml
-base_api:
-  cmd: 'export BASE="http://localhost:8080"'
-  desc: "Variable de entorno con la base de la API."
-
-```
-
-### 10.3 CRUD con curl
-
-*(ver sección 6.2)*
-
-### 10.4 PostgreSQL
-
-*(ver sección 5.2)*
-
-### 10.5 Migraciones (Flyway)
-
-```yaml
-crear_migracion_Vn:
-  cmd: 'touch src/main/resources/db/migration/V2__create_categories.sql'
-  desc: "Crea una nueva migración."
-aplicar_migraciones:
-  cmd: "./mvnw spring-boot:run"
-  desc: "Levanta la app; Flyway valida y migra."
-rehacer_ultima_migracion_dev:
-  cmd: |
-    # Desarrollo: revertir última entrada (hacer rollback manual del esquema)
-    PGPASSWORD=$SPRING_DATASOURCE_PASSWORD psql -h localhost -U $SPRING_DATASOURCE_USERNAME -d productdb \
-    -c "DELETE FROM flyway_schema_history WHERE installed_rank = (SELECT max(installed_rank) FROM flyway_schema_history);"
-  desc: "Desmarca la última migración (uso con cuidado en dev)."
-
-```
-
-### 10.6 Diagnóstico rápido
-
-```yaml
-ver_logs_app:
-  cmd: "./mvnw spring-boot:run -Dspring-boot.run.arguments=\"--logging.level.root=INFO --logging.level.org.springframework=INFO --logging.level.org.hibernate.SQL=DEBUG --logging.level.org.hibernate.type.descriptor.sql=TRACE\""
-  desc: "Arranca con logs detallados."
-puerto_ocupado:
-  cmd: "ss -ltnp | grep :8080  # o: lsof -i :8080"
-  desc: "Chequea si el 8080 está ocupado."
-matar_proceso_en_8080:
-  cmd: "kill -9 <PID>"
-  desc: "Libera el puerto 8080 (cuidado)."
-
-```
-
-### 10.7 Swagger/OpenAPI (opcional)
-
-- UI: `http://localhost:8080/swagger-ui/index.html`
-- Agregar dependencia `springdoc-openapi-starter-webmvc-ui` en `pom.xml`.
-
----
-
-## 11. Solución de problemas (troubleshooting)
-
-### 11.1 Compilación/Build (Maven)
-
-- **`error: release version 17 not supported`** → Selecciona JDK 17: configura `JAVA_HOME`, `update-alternatives` y verifica `java -version`/`javac -version`.
-- **`maven-wrapper.properties: No such file`** → Usa `mvn` del sistema o genera wrapper con `mvn -N wrapper`.
-- **Dependencias duplicadas** → Elimina duplicados en `pom.xml` y ejecuta `./mvnw -U clean package`.
-- **Símbolos/miembros duplicados** → Quita implementaciones repetidas en código.
-
-### 11.2 Arranque/Runtime
-
-- **`Port 8080 was already in use`** → Identifica y mata proceso (`ss`/`lsof`) o usa `-server.port=8081`.
-- **`ConflictingBeanDefinitionException`** → Hay dos beans con el mismo nombre (p. ej., dos `ProductController`). Deja uno.
-- **`Unsupported Database: PostgreSQL 18.0` (Flyway)** → Actualiza a versión reciente (ej. `11.15.0`) e incluye `flyway-database-postgresql`.
-- **`Schema-validation: missing column [X]`** → Entidad no coincide con esquema. Crea migración `Vn__...` con `ALTER TABLE` o ajusta la entidad.
-
-### 11.3 Conexión a BD
-
-- **`Peer authentication failed for user "postgres"`** → Usa `PGPASSWORD=... psql -h localhost -U postgres ...` o configura un usuario/password propios.
-- Verifica `spring.datasource.url` apunta a `jdbc:postgresql://localhost:5432/productdb`.
-
-### 11.4 Flyway
-
-- Para **nuevas columnas/tablas**, agrega `V2__...sql`, `V3__...sql`, etc. No edites migraciones ya aplicadas.
-- En **desarrollo**, para “volver atrás”: dropea el esquema público y reinicia (no en producción).
-
-### 11.5 API (cURL)
-
-- **500** → Revisa mappers/DTOs/Service; activa logs DEBUG; mapea excepciones a 400/404/409 en lugar de 500.
-- **404** → ID inexistente; lanza `NotFoundException` y manéjala en `@ControllerAdvice`.
-- **400** → JSON inválido o violación de Bean Validation.
-- **409** → Conflictos de negocio (duplicados únicos); valida en Service y responde 409.
-
-### 11.6 Datos “que desaparecen”
-
-- Asegura estar consultando **la misma** instancia de DB que usa la app (host, puerto, base). No mezcles contenedores con local.
-
----
-
-## 12. Razones técnicas: SQL vs NoSQL y elección de PostgreSQL
-
-### 12.1 ¿Por qué **SQL** para este proyecto?
-
-- **Relacionalidad y consistencia**: Productos con constraints (NOT NULL, CHECK `price >= 0`) y potenciales relaciones futuras (categorías, stocks, órdenes) se benefician de **ACID** y tipos fuertes.
-- **Consultas ad hoc** ricas: agregaciones, joins y paginación con costo predecible.
-- **Evolución controlada**: cambios de esquema versionados con **Flyway**.
-
-**Ventajas de SQL**
-
-- Integridad referencial, transacciones y normalización.
-- Ecosistema maduro (JDBC/JPA, migraciones, clientes, monitoreo).
-
-**Desventajas**
-
-- Menor flexibilidad de esquema que NoSQL.
-- Escalado horizontal suele requerir estrategias adicionales (sharding/replicación).
-
-**Cuándo elegir NoSQL**
-
-- Esquemas altamente dinámicos, documentos heterogéneos.
-- Altas tasas de escritura y lectura distribuidas globalmente con tolerancia a particiones.
-- Modelos de acceso simples (clave-valor/documento) y requerimientos de baja latencia.
-
-### 12.2 ¿Por qué **PostgreSQL** sobre otras opciones?
-
-- **Standards SQL y extensiones**: tipos avanzados (JSONB), índices potentes (GIN/GIST), funciones y vistas materializadas.
-- **Integridad y performance**: óptimo balance OLTP; excelente para CRUD con validaciones.
-- **Herramientas**: amplia disponibilidad de clientes (DBeaver/pgAdmin), soporte en Testcontainers, imágenes oficiales Docker.
-- **Comparativa breve**:
-    - vs **MySQL/MariaDB**: Postgres ofrece semántica SQL más estricta, `CHECK` robusto, tipos/índices avanzados y JSONB nativo con operadores potentes.
-    - vs **H2**: H2 es en memoria/embebida, útil para tests; no es una base de producción.
-    - vs **MongoDB** (NoSQL): schema-less y documentos flexibles, pero carece de joins/ACID completos por defecto para muchos casos; para este dominio relacional, Postgres se ajusta mejor.
-
----
-
-## 13. Seguridad y buenas prácticas
-
-- **Nunca** hardcodees credenciales en el repo. Usa **variables de entorno** o **Secret Managers**.
-- Separa **perfiles** (`dev`, `prod`) y configura CORS si habrá frontends en dominios distintos.
-- Deshabilita `open-in-view` en JPA (ya configurado) para evitar fugas del contexto de persistencia.
-- Loguea a niveles apropiados y evita volcar datos sensibles.
-
----
-
-## 14. Estructura de paquetes (sugerida)
-
-```
-com.example.productapi
-├─ config/           # CORS, Swagger, etc.
-├─ controller/       # ProductController
-├─ dto/              # ProductRequest, ProductResponse
-├─ entity/           # Product
-├─ exception/        # NotFoundException, ConflictException
-├─ repository/       # ProductRepository (JpaRepository)
-├─ service/          # ProductService
-└─ util/             # mappers, helpers
-
-```
-
----
-
-## 15. Estructura de proyecto — qué hay en cada carpeta y por qué
-
-> Objetivo: alta cohesión y bajo acoplamiento. Cada capa tiene una responsabilidad única, lo que facilita pruebas, mantenimiento y escalabilidad.
-> 
-
-### 15.1 Paquetes Java
-
-```
-com.example.productapi
-├─ config/           # Configuración transversal: CORS, Swagger/OpenAPI, mapeos Jackson, etc.
-├─ controller/       # Adaptadores HTTP: @RestController, rutas y status codes; solo orquestan.
-├─ dto/              # Contratos de entrada/salida (requests/responses). Evitan exponer entidades JPA.
-├─ entity/           # Modelo de persistencia (JPA @Entity): mapea 1:1 a tablas.
-├─ exception/        # Excepciones de dominio (NotFoundException, ConflictException, etc.).
-├─ repository/       # Interfaces JPA (JpaRepository<Product, Long>), queries derivadas, paginación.
-├─ service/          # Reglas de negocio, validaciones, transacciones; coordina repositorios.
-└─ util/             # Mappers/convertidores, helpers (evitar lógica de negocio aquí).
-
-```
-
-**Rationale**
-
-- `controller` expone **contratos HTTP**; no contiene lógica de negocio ni acceso a datos.
-- `service` centraliza **reglas** y valida **invariantes** (p. ej., precio ≥ 0 más allá de Bean Validation).
-- `repository` encapsula la **persistencia** y facilitan testear `service` con dobles/mocks.
-- `dto` define el **contrato público** (API contract) y desacopla la capa web del modelo de BD.
-
-### 15.2 Archivos raíz imprescindibles
-
-```
-.
-├─ pom.xml                         # Coordinadas Maven, dependencias y plugins (incluye BOM de Spring).
-├─ mvnw / mvnw.cmd                 # Maven Wrapper para Linux/macOS y Windows.
-├─ .mvn/wrapper/                   # Metadata del wrapper (versiones/URL de Maven).
-├─ src/
-│  ├─ main/
-│  │  ├─ java/com/example/productapi/
-│  │  │  ├─ ProductApiApplication.java   # Clase @SpringBootApplication (entry point).
-│  │  │  └─ (paquetes listados en 14.1)
-│  │  └─ resources/
-│  │     ├─ application.yml              # Config por perfil; NO subir credenciales reales.
-│  │     └─ db/migration/
-│  │        └─ V1__create_products.sql   # Migraciones Flyway versionadas (V2__, V3__, ...).
-│  └─ test/
-│     └─ java/com/example/productapi/    # Tests unitarios, web y de integración.
-└─ .gitignore                      # Ignora /target, /logs, .idea, .vscode, etc.
-
-```
-
-**Archivos clave por paquete**
-
-- `controller/ProductController.java`: endpoints (`/products`), mapea DTOs ⇄ dominio, devuelve códigos HTTP adecuados.
-- `dto/ProductRequest.java` y `dto/ProductResponse.java`: validaciones `@NotBlank`, `@PositiveOrZero` y proyección de salida.
-- `entity/Product.java`: `@Entity(name = "products")`, columnas, constraints (además de las de BD).
-- `repository/ProductRepository.java`: `interface` que extiende `JpaRepository` y habilita paginación/orden.
-- `service/ProductService.java`: `create, findAll(Pageable), findById, update, delete` con manejo de `NotFoundException`/`ConflictException`.
-- `exception/GlobalExceptionHandler.java`: `@ControllerAdvice` que unifica respuestas de error.
-
-## 16. Testing
-
-Este proyecto incorpora una batería de pruebas orientada a verificar **contrato de API**, **reglas de validación** y **comportamiento end-to-end**. A continuación se describe **qué se testea, cómo y por qué es importante**, junto con comandos y rutas de archivos para integrarlo a tu documentación.
-
-## 16.1 Tipos de tests incluidos
-
-### 1. Tests de Controller (slice web)
-
-- **Anotaciones clave:** `@WebMvcTest(ProductController.class)`, `MockMvc`
-    - **Qué validan:**
-        - Mapeos HTTP y rutas: `GET /products`, `GET /products/{id}`, `POST`, `PUT`, `DELETE`.
-        - **Códigos de estado** esperados (200/201/204/404/400).
-        - **Estructura del JSON** de respuesta (campos presentes).
-    - **Por qué importa:** detecta errores de contrato de API (paths, status, serialización) **sin** depender de la base de datos → **rápidos y precisos**.
-    
-    **Archivo de referencia:**
-    
-    `src/test/java/ar/edu/challenge01/productapi/web/ProductControllerTest.java`
-    
-    ---
-    
-    ### 2. Tests de Validación (Bean Validation)
-    
-    - **Anotaciones clave:** `@WebMvcTest`, `@Valid` en el `@RequestBody`, `ApiExceptionHandler`
-    - **Qué validan:**
-        - Que payloads inválidos (por ejemplo, `name` vacío o `price` nulo) disparen **400 Bad Request**.
-        - Que el **cuerpo de error** siga un formato consistente (clave `error`, `message`, `details` con campos y mensajes).
-    - **Por qué importa:** evita que **datos inválidos** entren a la capa de persistencia y estandariza la UX de la API ante errores.
-    
-    **Archivo de referencia:**
-    
-    `src/test/java/ar/edu/challenge01/productapi/web/ProductValidationTest.java`
-    
-    > Nota: El handler devuelve error: "Bad Request" (reason phrase estándar). Los tests ya contemplan ese valor para no generar falsos negativos.
-    > 
-    
-    ---
-    
-    ### 3. Tests de Integración (end-to-end) – *opcional/si se activan*
-    
-    - **Anotaciones clave:** `@SpringBootTest`, `MockMvc` (o `TestRestTemplate`)
-    - **Qué validan:**
-        - Flujo **real** CRUD: crear → leer → actualizar → borrar **atravesando todas las capas** (web → JPA → DB → Flyway).
-        - Alineación entre **entidades JPA** y **migraciones** (columnas, tipos, constraints).
-    - **Por qué importa:** da **confianza de extremo a extremo**; si pasa aquí, es altamente probable que funcione igual en producción.
-    
-    **Archivo de referencia (si se incluye):**
-    
-    `src/test/java/ar/edu/challenge01/productapi/web/ProductE2ETest.java`
-    
-
-| Tipo | Criterio | Ejemplo de aserción |
-| --- | --- | --- |
-| Controller (Web) | La ruta responde con **status** correcto | `andExpect(status().isOk())`, `isCreated()`, `isNoContent()`, `isNotFound()`, `isBadRequest()` |
-| Controller (Web) | JSON con **campos esperados** | `jsonPath("$.id").exists()`, `jsonPath("$.name").value("Teclado")` |
-| Validación | **400** cuando el payload viola `@Valid` | `andExpect(status().isBadRequest())` |
-| Validación | **Formato de error** consistente | `jsonPath("$.error").value("Bad Request")` y `jsonPath("$.details.name").exists()` |
-| Integración | CRUD completo **end-to-end** | POST→GET→PUT→DELETE con verificación de side-effects en DB |
+## 11. Testing — resumen
+
+| Tipo de test       | Capa         | Herramienta            | Objetivo principal                                  |
+|--------------------|-------------|------------------------|----------------------------------------------------|
+| Unit tests         | Servicio    | JUnit + Mockito        | Regla de negocio y validaciones                    |
+| Web slice tests    | Controller  | @WebMvcTest + MockMvc  | Códigos HTTP, payloads, errores                    |
+| Integration tests  | Full stack | @SpringBootTest        | Flujo completo con BD (idealmente PostgreSQL real) |
+
+Con esta base, la API queda lista para ser probada por cualquier cliente HTTP (curl, Postman, Insomnia, Swagger UI, etc.) y para ser extendida con nuevas funcionalidades en el futuro.
